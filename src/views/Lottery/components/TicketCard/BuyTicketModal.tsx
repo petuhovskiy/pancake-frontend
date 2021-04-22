@@ -16,6 +16,7 @@ interface BuyTicketModalProps {
 
 const BuyTicketModal: React.FC<BuyTicketModalProps> = ({ max, onDismiss }) => {
   const [val, setVal] = useState('1')
+  const [ticketsDataStr, setTicketsDataStr] = useState('')
   const [pendingTx, setPendingTx] = useState(false)
   const [, setRequestedBuy] = useState(false)
   const TranslateString = useI18n()
@@ -33,20 +34,41 @@ const BuyTicketModal: React.FC<BuyTicketModalProps> = ({ max, onDismiss }) => {
     }
   }
 
+  const handleTDataChange = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    setTicketsDataStr(e.currentTarget.value)
+  }
+
+  const parseTicketsData = (data: string): number[][] => {
+    const regexp = /(\d+)-(\d+)-(\d+)-(\d+)/g;
+    const matchAll = Array.from(data.matchAll(regexp));
+
+    return matchAll.map(e => {
+      return [parseInt(e[1]),parseInt(e[2]),parseInt(e[3]),parseInt(e[4])]
+    })
+  }
+
   const { onMultiBuy } = useMultiBuyLottery()
   const maxNumber = useMaxNumber()
   const handleBuy = useCallback(async () => {
     try {
       setRequestedBuy(true)
       const length = parseInt(val)
+      console.log('tickets count = ', length)
+      const myTickets = parseTicketsData(ticketsDataStr)
       // @ts-ignore
       // eslint-disable-next-line prefer-spread
-      const numbers = Array.apply(null, { length }).map(() => [
+      const randomBrowser = Array.apply(null, { length }).map(() => [
         Math.floor(Math.random() * maxNumber) + 1,
         Math.floor(Math.random() * maxNumber) + 1,
         Math.floor(Math.random() * maxNumber) + 1,
         Math.floor(Math.random() * maxNumber) + 1,
       ])
+      const numbers = myTickets
+      console.log(numbers)
+      if (numbers.length !== length) {
+        alert('pizdec')
+        return
+      }
       const txHash = await onMultiBuy(LOTTERY_TICKET_PRICE.toString(), numbers)
       // user rejected tx or didn't go thru
       if (txHash) {
@@ -55,7 +77,7 @@ const BuyTicketModal: React.FC<BuyTicketModalProps> = ({ max, onDismiss }) => {
     } catch (e) {
       console.error(e)
     }
-  }, [onMultiBuy, setRequestedBuy, maxNumber, val])
+  }, [onMultiBuy, setRequestedBuy, maxNumber, val, ticketsDataStr])
 
   const handleSelectMax = useCallback(() => {
     if (Number(maxTickets) > LOTTERY_MAX_NUMBER_OF_TICKETS) {
@@ -89,6 +111,7 @@ const BuyTicketModal: React.FC<BuyTicketModalProps> = ({ max, onDismiss }) => {
           )}
         </Announce>
         <Final>{TranslateString(460, `You will spend: ${cakeCosts(val)} CAKE`)}</Final>
+        <textarea value={ticketsDataStr} onChange={handleTDataChange} />
       </div>
       <ModalActions>
         <Button width="100%" variant="secondary" onClick={onDismiss}>
@@ -98,11 +121,11 @@ const BuyTicketModal: React.FC<BuyTicketModalProps> = ({ max, onDismiss }) => {
           id="lottery-buy-complete"
           width="100%"
           disabled={
-            pendingTx ||
+            (pendingTx ||
             !Number.isInteger(parseInt(val)) ||
             parseInt(val) > Number(maxTickets) ||
             parseInt(val) > LOTTERY_MAX_NUMBER_OF_TICKETS ||
-            parseInt(val) < 1
+            parseInt(val) < 1) && true
           }
           onClick={async () => {
             setPendingTx(true)
